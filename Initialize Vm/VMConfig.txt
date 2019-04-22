@@ -1,0 +1,5 @@
+#Versioning
+php=7.2
+mariadb=10.3
+#MACRO VARIABLES
+isInit=y
