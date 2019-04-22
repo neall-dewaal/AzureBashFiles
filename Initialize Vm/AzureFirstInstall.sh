@@ -96,8 +96,7 @@ function InstallMaria {
 #Clean and secure the database
 function WriteDatabasePermissions {
     echo -e "$Cyan \n Configuring Database $Color_Off"
-    #mysql -u root --password="hVx?N8ZP}*7X"
-    mysql -u root -phVx?N8ZP}*7X<<-EOF
+    mysql -u root -p$password<<-EOF
 use mysql;
 DELETE FROM user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
 DELETE FROM user WHERE User='';
@@ -112,8 +111,7 @@ EOF
 # Install PHP //
 function InstallPHP {
     echo -e "$Cyan \n Installing PHP $Color_Off"
-    sudo apt-get install -y php php-tcpdf php-cgi php-mysqli php-cli php-pear php-mbstring php-gettext libapache2-mod-php php-common php-phpseclib php-mysql
-    #sudo a2enconf
+    sudo apt-get install -y php php-tcpdf php-cgi php-mysqli php-cli php-pear php-mbstring php-gettext libapache2-mod-php php-common php-phpseclib php-mysql php-curl
     printInput "Successfully installed PHP"
 }
 #Install phpmyadmin
@@ -147,6 +145,16 @@ function RestartServer {
 #Change permissions
 function WritePermissions {
     echo -e "$Cyan \n Changing default permissions of files $Color_Off"
+    sudo chmod -R 777 /etc/pam.d
+    sudo mkdir /etc/pam.d/custom-scripts
+    sudo mv /home/$username/chPermOwn.sh /etc/pam.d/custom-scripts
+    sudo cp /home/$username/Output.txt /etc/pam.d/custom-scripts/Output.txt
+    sudo mv /home/$username/stopBash.txt /etc/pam.d/custom-scripts
+    sudo chmod +x /etc/pam.d/custom-scripts/chPermOwn.sh
+    sudo rm /etc/pam.d/sshd
+    sudo mv /home/$username/sshd /etc/pam.d
+    sudo chmod -R 774 /etc/pam.d/custom-scripts
+
     sudo adduser $username www-data
     sudo chown -R $username:www-data /var/www/html
     find /var/www/html -type d -exec chmod 755 {} +
@@ -177,6 +185,7 @@ if [[ $key == y ]]; then
     echo -e "\n"
 fi
 read -p "What is the username used to SSH into the VM: " username
+read -p "What is the password used to SSH into the VM: " password
 
 #check versioning
 while read string
