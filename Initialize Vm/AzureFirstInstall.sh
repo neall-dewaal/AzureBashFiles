@@ -147,8 +147,8 @@ function RestartServer {
 #Change permissions
 function WritePermissions {
     echo -e "$Cyan \n Changing default permissions of files $Color_Off"
-    sudo adduser neall www-data
-    sudo chown -R neall:www-data /var/www/html
+    sudo adduser $username www-data
+    sudo chown -R $username:www-data /var/www/html
     find /var/www/html -type d -exec chmod 755 {} +
     find /var/www/html -type f -exec chmod 775 {} +
     sudo chmod ug+s /var/www/html
@@ -158,8 +158,8 @@ function WritePermissions {
 #Change default landing directory on login
 ChangeDefaultDir () {
     echo -e "$Cyan \n Installing default landing directory $Color_Off"
-    sudo su <<-EOF
-killall -u neall; sleep 2; usermod -d /var/www/html neall &
+    sudo su <<EOF
+killall -u $username; sleep 2; usermod -d /var/www/html $username &
 EOF
     printInput "Successfully updated the default login directory."
 }
@@ -171,13 +171,14 @@ echo -e "$Green We will now present you with a list of questions to speed up the
 echo -e "$Green Are you ready? [y/n]:"
 read -rsp $'Press any key to continue...' -n1 key
 echo -e "$Green Great! Here we go. $Color_Off"
-read -rsp "$Red Is this the first time running this machine? [y/n] $Color_Off" -n1 key
+read -rsp "Is this the first time running this machine? [y/n]" -n1 key
 if [[ $key == y ]]; then
     isFirst=y
     echo -e "\n"
 fi
-read -p "$Red What is the username used to SSH into the VM $Color_Off" username
+read -p "What is the username used to SSH into the VM: " username
 
+#check versioning
 while read string
 do
     echo $string
