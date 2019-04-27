@@ -57,7 +57,7 @@ function UpdateSys {
     echo -e "$Cyan \n Updating System... $Color_Off"
     sudo ufw allow in "openSSH"
     sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get autoremove -y
-    sudo set-timezone Africa/Johannesburg
+    set-timezone Africa/Johannesburg
     printInput "Successfully updated all packages, dependencies and distributions."
 }
 # Install Apache //
@@ -111,7 +111,7 @@ GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost';
 GRANT ALL PRIVILEGES ON *.* TO '${usr}'@'%';
 FLUSH PRIVILEGES;
 EOF
-    printInput "Successfully installed MariaDb"
+    printInput "Successfully configured database"
 }
 # Install PHP //
 function InstallPHP {
@@ -151,14 +151,16 @@ function RestartServer {
 function WritePermissions {
     echo -e "$Cyan \n Changing default permissions of files $Color_Off"
     cd /etc/pam.d
-    sed -i '53i\session     optional    pam_exec.so quiet /etc/pam.d/custom-scripts/CheckFirstRun.sh\' sshd
-    #echo "session     optional    pam_exec.so quiet /etc/pam.d/custom-scripts/CheckFirstRun.sh" >> /etc/pam.d/sshd
+    sed -i '53i\session     optional    pam_exec.so quiet /etc/pam.d/custom-scripts/StratusolveConfigVM.sh\' sshd
+    #echo "session     optional    pam_exec.so quiet /etc/pam.d/custom-scripts/StratusolveConfigVM.sh" >> /etc/pam.d/sshd
     #sudo chmod -R 774 /etc/pam.d/custom-scripts
     sudo adduser $usr www-data
     sudo chown -R www-data:www-data /var/www/html
-    find /var/www/html -type d -exec chmod 755 {} +
+    find /var/www/html -type d -exec chmod 775 {} +
     find /var/www/html -type f -exec chmod 775 {} +
     sudo chmod ug+s /var/www/html
+    sudo chown -R www-data:www-data $DirectoryPermissionRewriteLocation
+    sudo chmod -R 775 $DirectoryPermissionRewriteLocation
     echo -e "$Green \n Permissions have been set $Color_Off"
     printInput "Successfully updated the file permissions of /var/www/html."
 }
@@ -170,31 +172,36 @@ killall -u $usr; sleep 2; usermod -d /var/www/html $usr &
 EOF
     printInput "Successfully updated the default login directory."
 }
-#check versioning
-while read string
-do
-    echo $string
-    #Test the version of php
-    if [[ $string == *"php"* ]]; then
-        SUBSTR=$(echo $string | cut -d'=' -f 2)
-    fi
-    #Test the version of MariaDB
-    if [[ $string == *"mariadb"* ]]; then
-        SUBSTR=$(echo $string | cut -d'=' -f 2)
-    fi
-done < $AllConf
 function startupScript {
+    echo -e "$Green Hi! Welcome to the setup wizard! $Color_Off"
+    echo -e "$Green Here we will set up your machine. $Color_Off"
+    echo -e "$Green We will now present you with a list of questions to speed up the configuration. $Color_Off"
+    echo -e "$Green Are you ready? [y/n]:"
+    read -rsp $'Press any key to continue...' -n1 key
+    echo -e "$Green Great! Here we go. $Color_Off"
+    read -p "Is this the first time running this machine? [y/n]" key
+    if [[ $key == y ]]; then
+        isFirst=y
+    fi
     # Here we define the functions to run if it is the first time.
     read -p "What is the username used to SSH into the VM: " username
-    read -p "What is the password used to SSH into the VM: " password
+    read -rsp "What is the password used to SSH into the VM: " password
+    read -rsp "\nPlease repeat the password: " reppassword
+    while [[ $password != $reppassword ]];
+    do
+        echo -e "$Red Your password do not match! $Color_Off"
+        read -rsp "What is the password used to SSH into the VM: " password
+        read -rsp "Please repeat the password: " reppassword
+    done
     sudo chmod -R 777 /etc/pam.d
     sudo mkdir /etc/pam.d/custom-scripts
     sudo mv /home/$username/chPermOwn.sh /etc/pam.d/custom-scripts
     sudo mv /home/$username/Output.txt /etc/pam.d/custom-scripts
     sudo mv /home/$username/stopBash.txt /etc/pam.d/custom-scripts
+    sudo mv /home/$username/VMConfig.txt /etc/pam.d/custom-scripts
     sudo chmod +x /etc/pam.d/custom-scripts/chPermOwn.sh
-    sudo cp /home/$username/CheckFirstRun.sh /etc/pam.d/custom-scripts/CheckFirstRun.sh
-    sudo chmod +x /etc/pam.d/custom-scripts/CheckFirstRun.sh
+    sudo cp /home/$username/StratusolveConfigVM.sh /etc/pam.d/custom-scripts/StratusolveConfigVM.sh
+    sudo chmod +x /etc/pam.d/custom-scripts/StratusolveConfigVM.sh
     sudo cp /home/$username/AzureFirstInstall.sh /etc/pam.d/custom-scripts/AzureFirstInstall.sh
     sudo chmod +x /etc/pam.d/custom-scripts/AzureFirstInstall.sh
     sudo mv /home/$username/FirstRun.txt /etc/pam.d/custom-scripts
@@ -202,23 +209,34 @@ function startupScript {
     passwd=$password
 }
 
-usr=$1
-passwd=$2
-#startupScript
 DirectoryPermissionRewriteLocation=/var/www/html #Specify directory for which to rewrite permissions.
 OutputFileLocation=/etc/pam.d/custom-scripts/Output.txt #specify your output file here.
 AllConf=/etc/pam.d/custom-scripts/VMConfig.txt
 StopBashFile=/etc/pam.d/custom-scripts/FirstRun.txt
 
-UpdateSys
-setupUserPassword
-InstallApache
-InstallPHP
-InstallMaria
-InstallMyAdmin
-RestartServer
-WriteDatabasePermissions
-WritePermissions
-RestartServer
-#ChangeDefaultDir
-
+case "$1" in
+    All) echo "Initializing Machine:"
+         startupScript
+         UpdateSys
+         setupUserPassword
+         InstallApache
+         InstallPHP
+         InstallMaria
+         InstallMyAdmin
+         RestartServer
+         WriteDatabasePermissions
+         WritePermissions
+         RestartServer
+         echo "Done" >> /etc/pam.d/custom-scripts/FirstRun.txt
+         echo "username=$usr" >> /etc/pam.d/custom-scripts/VMConfig.txt
+         cd /home/$usr
+         sudo rm AzureFirstInstall.sh
+         ChangeDefaultDir
+         sudo rm StratusolveConfigVM.sh
+         ;;
+    none) echo "Updating Permissions:"
+          cd /etc/pam.d/custom-scripts
+          ./chPermOwn.sh
+          cd
+          ;;
+esac
